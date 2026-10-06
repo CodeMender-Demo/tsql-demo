@@ -67,9 +67,17 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Sanitize Sort Column by removing single quotes (stops SQL injection quotes)
+    -- Validate Sort Column against allowed whitelist to prevent SQL injection
     DECLARE @CleanSortColumn NVARCHAR(100);
-    SET @CleanSortColumn = REPLACE(@SortColumn, '''', '');
+    SET @CleanSortColumn = CASE LOWER(LTRIM(RTRIM(@SortColumn)))
+        WHEN 'accountid'   THEN 'AccountId'
+        WHEN 'accountname' THEN 'AccountName'
+        WHEN 'email'       THEN 'Email'
+        WHEN 'balance'     THEN 'Balance'
+        WHEN 'createddate' THEN 'CreatedDate'
+        WHEN 'tenantid'    THEN 'TenantId'
+        ELSE 'CreatedDate'
+    END;
 
     -- Ensure direction is either ASC or DESC
     DECLARE @CleanDirection NVARCHAR(4);
