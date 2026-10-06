@@ -143,87 +143,6 @@ jobs:
             # Write a json report
             cm report --format json > codemender_report.json
 
-      # - name: Verify Open Findings
-      #   run: |
-      #     jq -r '.[] | select(.status == "OPEN" and (.severity == "HIGH" or .severity == "CRITICAL")) | .finding_id' codemender_report.json | while read -r finding_id; do
-      #         echo "Verifying ID: $finding_id"
-      #         max_retries=3
-      #         for ((attempt=1; attempt<=max_retries; attempt++)); do
-      #             echo "Attempt $attempt of $max_retries..."
-                  
-      #             if cm verify $finding_id --bypass-warning -y; then
-      #                 echo "CLI succeeded (Exit code 0)"
-      #                 break # Exit the loop immediately on success
-      #             else
-      #                 # The shell enters here if the exit code is non-zero
-      #                 exit_code=$?
-      #                 echo "CLI failed with exit code: $exit_code"
-                      
-      #                 if [ "$attempt" -eq "$max_retries" ]; then
-      #                     echo "All $max_retries attempts failed. Exiting."
-      #                     exit "$exit_code"
-      #                 fi
-                      
-      #                 # Optional: Wait 2 seconds before retrying
-      #                 echo "Retrying in 2 seconds..."
-      #                 sleep 2
-      #             fi
-      #         done
-      #     done
-      #     # Update JSON report on disk
-      #     cm report --format json > codemender_report.json
-          
-      # - name: Suggest Fix For Verified Findings
-      #   run: |
-      #     jq -r '.[] | select(.status == "VERIFIED") | .finding_id' codemender_report.json | while read -r finding_id; do
-      #         echo "Suggesting fix for ID: $finding_id"
-      #         max_retries=3
-      #         for ((attempt=1; attempt<=max_retries; attempt++)); do
-      #             echo "Attempt $attempt of $max_retries..."
-                  
-      #             if cm fix $finding_id --bypass-warning -y; then
-      #                 echo "CLI succeeded (Exit code 0)"
-      #                 git add .
-      #                 echo "### 🛠️ Proposed Code Changes for $finding_id" >> $GITHUB_STEP_SUMMARY
-      #                 echo '```diff' >> $GITHUB_STEP_SUMMARY
-      #                 echo "$(git diff --staged)" >> $GITHUB_STEP_SUMMARY
-      #                 echo '```' >> $GITHUB_STEP_SUMMARY
-      #                 break # Exit the loop immediately on success
-      #             else
-      #                 # The shell enters here if the exit code is non-zero
-      #                 exit_code=$?
-      #                 echo "CLI failed with exit code: $exit_code"
-                      
-      #                 if [ "$attempt" -eq "$max_retries" ]; then
-      #                     echo "All $max_retries attempts failed. Exiting."
-      #                     exit "$exit_code"
-      #                 fi
-                      
-      #                 # Optional: Wait 2 seconds before retrying
-      #                 echo "Retrying in 2 seconds..."
-      #                 sleep 2
-      #             fi
-      #         done
-      #     done
-      #     # Update JSON report on disk
-      #     cm report --format json > codemender_report.json
-      
-      # # Generate and Publish the Report
-      # - name: Generate Security Report
-      #   run: |
-      #     echo "📊 Generating Markdown report..."
-      #     cm report --format md > codemender_summary.md
-      #     # Extract the execution and token usage line from the scan log
-      #     TOKEN_SUMMARY=$(grep "Tokens:" scan_output.log | tail -n 1 || true)
-      #     # If the token summary was found, inject it at the top of the GitHub Step Summary
-      #     if [ -n "$TOKEN_SUMMARY" ]; then
-      #       echo "### 🪙 Execution & Token Usage" >> $GITHUB_STEP_SUMMARY
-      #       echo "> $TOKEN_SUMMARY" >> $GITHUB_STEP_SUMMARY
-      #       echo "---" >> $GITHUB_STEP_SUMMARY
-      #     fi
-      #     echo "# CodeMender Scan Results" >> $GITHUB_STEP_SUMMARY
-      #     cat codemender_summary.md >> $GITHUB_STEP_SUMMARY
-
       - name: Verify Exploitability and Generate Remediation PRs
         env:
           GH_TOKEN: ${{ github.token }}
@@ -277,7 +196,7 @@ jobs:
               if cm fix "$id" -y --bypass-warning && ! git diff --quiet; then
                 # Check Finding Status
                 FINDING_STATE=$(cm report "$id" --format=json | jq -r '.[0].status // empty')
-                if [ "$FINDING_STATE" != "VERIFIED" ]; then
+                if [ "$FINDING_STATE" != "FIXED" ]; then
                   # ------------------------------------------------------
                   # SCENARIO A: Vulnerability is NOT fixed
                   # ------------------------------------------------------
