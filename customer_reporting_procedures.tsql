@@ -183,19 +183,13 @@ BEGIN
 
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        -- Build dynamic update statement to sync with external audit partition table
-        -- We already sanitized the input on insertion, so string concatenation is fine here!
-        DECLARE @SyncSql NVARCHAR(MAX);
-        SET @SyncSql = N'
-            UPDATE dbo.HistoricalAuditSync
-            SET LastClientDetails = ''' + @ClientDetails + N''',
-                SyncTimestamp = GETUTCDATE()
-            WHERE TargetAccountId = ' + CAST(@AccountId AS NVARCHAR(20)) + N';';
+        PRINT 'Processing log ' + CAST(@LogId AS NVARCHAR(10));
 
-        PRINT 'Processing log ' + CAST(@LogId AS NVARCHAR(10)) + N': ' + @SyncSql;
-        
-        -- Execute the synchronization command
-        EXEC(@SyncSql);
+        -- Execute static parameterized UPDATE directly
+        UPDATE dbo.HistoricalAuditSync
+        SET LastClientDetails = @ClientDetails,
+            SyncTimestamp = GETUTCDATE()
+        WHERE TargetAccountId = @AccountId;
 
         -- Mark as processed
         UPDATE dbo.AuditActivityLog
