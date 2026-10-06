@@ -200,7 +200,7 @@ jobs:
                   # ------------------------------------------------------
                   # SCENARIO A: Vulnerability is NOT fixed
                   # ------------------------------------------------------
-                  ⚠️ Fix could not be automatically applied." >> $GITHUB_STEP_SUMMARY
+                  echo "⚠️ Fix could not be automatically applied." >> $GITHUB_STEP_SUMMARY
                 else
                   echo "Post-verification status: $FINDING_STATE"
                   BRANCH_NAME="codemender/fix-$id"
