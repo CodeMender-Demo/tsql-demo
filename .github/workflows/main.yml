@@ -231,8 +231,8 @@ jobs:
         if: always()
         run: |
           cm report --format=html > codemender-audit.html
-          cm report --format=md > output=codemender-audit.md
-          cm report --format=json > output=codemender_report.json
+          cm report --format=md > codemender-audit.md
+          cm report --format=json > codemender_report.json
 
       - name: Upload Audit Reports
         if: always()
