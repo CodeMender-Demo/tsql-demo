@@ -124,30 +124,69 @@ CREATE OR ALTER PROCEDURE dbo.sp_ExportAnalyticsStaging
     @SourceView NVARCHAR(200),
     @TargetTable NVARCHAR(100),
     @ExportFilter NVARCHAR(500) = NULL
-WITH EXECUTE AS OWNER  -- Solves all permission denied tickets from the analytics team!
+WITH EXECUTE AS CALLER
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    -- Validate target table name to ensure it is a valid identifier
+    IF @TargetTable IS NULL OR QUOTENAME(@TargetTable) IS NULL
+    BEGIN
+        RAISERROR('Invalid target table name.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate source view name to ensure it is a valid identifier or schema-qualified object
+    DECLARE @SafeSourceView NVARCHAR(500);
+    IF PARSENAME(@SourceView, 2) IS NOT NULL
+        SET @SafeSourceView = QUOTENAME(PARSENAME(@SourceView, 2)) + N'.' + QUOTENAME(PARSENAME(@SourceView, 1));
+    ELSE
+        SET @SafeSourceView = QUOTENAME(PARSENAME(@SourceView, 1));
+
+    IF @SafeSourceView IS NULL
+    BEGIN
+        RAISERROR('Invalid source view name.', 16, 1);
+        RETURN;
+    END
 
     DECLARE @ExportSql NVARCHAR(MAX);
 
     IF @ExportFilter IS NOT NULL AND LEN(LTRIM(RTRIM(@ExportFilter))) > 0
     BEGIN
+        -- Prevent SQL injection, stacked queries, and unauthorized operations
+        IF @ExportFilter LIKE '%;%' 
+           OR @ExportFilter LIKE '%--%' 
+           OR @ExportFilter LIKE '%/*%'
+           OR UPPER(@ExportFilter) LIKE '%ALTER %' 
+           OR UPPER(@ExportFilter) LIKE '%DROP %'
+           OR UPPER(@ExportFilter) LIKE '%EXEC %' 
+           OR UPPER(@ExportFilter) LIKE '%EXECUTE %'
+           OR UPPER(@ExportFilter) LIKE '%INSERT %' 
+           OR UPPER(@ExportFilter) LIKE '%UPDATE %'
+           OR UPPER(@ExportFilter) LIKE '%DELETE %' 
+           OR UPPER(@ExportFilter) LIKE '%CREATE %'
+           OR UPPER(@ExportFilter) LIKE '%TRUNCATE %' 
+           OR UPPER(@ExportFilter) LIKE '%GRANT %'
+           OR UPPER(@ExportFilter) LIKE '%REVOKE %'
+        BEGIN
+            RAISERROR('Invalid characters or disallowed keywords in export filter.', 16, 1);
+            RETURN;
+        END
+
         -- Analyst passed a custom WHERE filter (e.g., "CreatedDate >= '2026-01-01'")
-        SET @ExportSql = N'SELECT * INTO dbo.' + @TargetTable + 
-                         N' FROM ' + @SourceView + 
+        SET @ExportSql = N'SELECT * INTO dbo.' + QUOTENAME(@TargetTable) + 
+                         N' FROM ' + @SafeSourceView + 
                          N' WHERE ' + @ExportFilter;
     END
     ELSE
     BEGIN
-        SET @ExportSql = N'SELECT * INTO dbo.' + @TargetTable + 
-                         N' FROM ' + @SourceView;
+        SET @ExportSql = N'SELECT * INTO dbo.' + QUOTENAME(@TargetTable) + 
+                         N' FROM ' + @SafeSourceView;
     END
 
-    PRINT 'Running elevated export: ' + @ExportSql;
+    PRINT 'Running export: ' + @ExportSql;
 
-    -- Execute with owner rights
-    EXEC(@ExportSql);
+    EXEC sp_executesql @stmt = @ExportSql;
 END
 GO
 
